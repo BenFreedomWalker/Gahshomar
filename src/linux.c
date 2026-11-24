@@ -25,6 +25,7 @@
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <X11/keysym.h>
 #include <GL/glx.h>
 
 #ifdef GH_HAVE_WAYLAND
@@ -169,8 +170,7 @@ static void draw_text(cairo_t *cr, const char *text,
 {
     PangoLayout *layout;
     PangoFontDescription *font;
-    GdkRGBA rgba;
-    int red, green, blue;
+    double red, green, blue;
 
     layout = pango_cairo_create_layout(cr);
     font = pango_font_description_from_string("Noto Sans Arabic");
@@ -182,15 +182,17 @@ static void draw_text(cairo_t *cr, const char *text,
     pango_layout_set_alignment(layout, alignment);
     pango_layout_set_single_paragraph_mode(layout, TRUE);
 
-    red = green = blue = 255;
-    if (sscanf(color, "#%02x%02x%02x", &red, &green, &blue) != 3)
-        red = green = blue = 255;
-    rgba.red = red / 255.0;
-    rgba.green = green / 255.0;
-    rgba.blue = blue / 255.0;
-    rgba.alpha = 1.0;
+    red = green = blue = 1.0;
+    {
+        unsigned int r8 = 255, g8 = 255, b8 = 255;
+        if (sscanf(color, "#%02x%02x%02x", &r8, &g8, &b8) == 3) {
+            red = r8 / 255.0;
+            green = g8 / 255.0;
+            blue = b8 / 255.0;
+        }
+    }
 
-    cairo_set_source_rgba(cr, rgba.red, rgba.green, rgba.blue, rgba.alpha);
+    cairo_set_source_rgba(cr, red, green, blue, 1.0);
     cairo_move_to(cr, x, y);
     pango_cairo_update_layout(cr, layout);
     pango_cairo_show_layout(cr, layout);
@@ -516,6 +518,8 @@ typedef struct GhWayland {
     EGLConfig egl_config;
     EGLContext egl_context;
     EGLSurface egl_surface;
+    double pointer_x;
+    double pointer_y;
     int configured;
 } GhWayland;
 
@@ -586,7 +590,9 @@ static void pointer_leave(void *data, struct wl_pointer *pointer,
 static void pointer_motion(void *data, struct wl_pointer *pointer,
                            uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
 {
-    (void)data; (void)pointer; (void)time; (void)sx; (void)sy;
+    (void)data; (void)pointer; (void)time;
+    g_wl.pointer_x = wl_fixed_to_double(sx);
+    g_wl.pointer_y = wl_fixed_to_double(sy);
 }
 
 static void pointer_button(void *data, struct wl_pointer *pointer,
@@ -595,7 +601,7 @@ static void pointer_button(void *data, struct wl_pointer *pointer,
 {
     (void)data; (void)pointer; (void)serial; (void)time;
     if (button == 0x110 && state == WL_POINTER_BUTTON_STATE_PRESSED)
-        (void)click_navigation(g_wl.pointer ? (int)wl_fixed_to_double(g_wl.pointer ? 0 : 0) : 0, 0);
+        (void)click_navigation((int)g_wl.pointer_x, (int)g_wl.pointer_y);
 }
 
 static void pointer_axis(void *data, struct wl_pointer *pointer,
