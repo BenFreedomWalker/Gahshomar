@@ -11,6 +11,8 @@
 #include <GL/gl.h>
 #include <time.h>
 #include <wchar.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "gahshomar/calendar.h"
 
@@ -108,6 +110,13 @@ static void render_calendar(void)
     int grid_h = height - 230;
     int start_day;
     HDC dc;
+    HBITMAP text_bitmap;
+    HGDIOBJ old_bitmap;
+    BITMAPINFO bitmap_info;
+    void *dib_bits = NULL;
+    unsigned char *rgba;
+    size_t pixel_count;
+    int px, py;
 
     if (days <= 0 || width < 360 || height < 360) return;
 
@@ -180,15 +189,35 @@ static void render_calendar(void)
         }
     }
 
-    SwapBuffers(g_dc);
-
     /*
-     * Draw text after the OpenGL swap. GDI's Unicode text layout handles
-     * Persian shaping and RTL display; drawing it after the swap keeps it
-     * visible over the OpenGL front buffer.
+     * Render text into an off-screen 32-bit DIB. GDI performs Unicode
+     * shaping and RTL layout; OpenGL then composites the resulting pixels
+     * into its back buffer before the buffer swap.
      */
-    dc = GetDC(g_hwnd);
-    if (!dc) return;
+    dc = CreateCompatibleDC(NULL);
+    if (!dc) {
+        SwapBuffers(g_dc);
+        return;
+    }
+
+    ZeroMemory(&bitmap_info, sizeof(bitmap_info));
+    bitmap_info.bmiHeader.biSize = sizeof(bitmap_info.bmiHeader);
+    bitmap_info.bmiHeader.biWidth = width;
+    bitmap_info.bmiHeader.biHeight = -height; /* top-down DIB */
+    bitmap_info.bmiHeader.biPlanes = 1;
+    bitmap_info.bmiHeader.biBitCount = 32;
+    bitmap_info.bmiHeader.biCompression = BI_RGB;
+    text_bitmap = CreateDIBSection(dc, &bitmap_info, DIB_RGB_COLORS,
+                                   &dib_bits, NULL, 0);
+    if (!text_bitmap || !dib_bits) {
+        if (text_bitmap) DeleteObject(text_bitmap);
+        DeleteDC(dc);
+        SwapBuffers(g_dc);
+        return;
+    }
+
+    old_bitmap = SelectObject(dc, text_bitmap);
+    PatBlt(dc, 0, 0, width, height, BLACKNESS);
 
     text_rect.left = 48; text_rect.top = 22;
     text_rect.right = width - 48; text_rect.bottom = 68;
@@ -248,7 +277,55 @@ static void render_calendar(void)
                   DT_CENTER | DT_TOP | DT_SINGLELINE);
     }
 
-    ReleaseDC(g_hwnd, dc);
+    /*
+     * GDI's 32-bit DIB is BGRA with an unused alpha byte. Its RGB values
+     * represent antialiased text on black, so derive coverage from the
+     * strongest channel and un-premultiply the color for GL blending.
+     * Reverse the rows because glDrawPixels consumes bottom-up image data.
+     */
+    pixel_count = (size_t)width * (size_t)height;
+    rgba = (unsigned char *)malloc(pixel_count * 4u);
+    if (rgba) {
+        const unsigned char *source = (const unsigned char *)dib_bits;
+        for (py = 0; py < height; ++py) {
+            int source_y = height - 1 - py;
+            for (px = 0; px < width; ++px) {
+                size_t src = ((size_t)source_y * (size_t)width + (size_t)px) * 4u;
+                size_t dst = ((size_t)py * (size_t)width + (size_t)px) * 4u;
+                unsigned int blue = source[src];
+                unsigned int green = source[src + 1];
+                unsigned int red = source[src + 2];
+                unsigned int alpha = red > green ? red : green;
+                if (blue > alpha) alpha = blue;
+
+                if (alpha == 0) {
+                    rgba[dst] = rgba[dst + 1] = rgba[dst + 2] = rgba[dst + 3] = 0;
+                } else {
+                    rgba[dst] = (unsigned char)((red * 255u + alpha / 2u) / alpha);
+                    rgba[dst + 1] = (unsigned char)((green * 255u + alpha / 2u) / alpha);
+                    rgba[dst + 2] = (unsigned char)((blue * 255u + alpha / 2u) / alpha);
+                    rgba[dst + 3] = (unsigned char)alpha;
+                }
+            }
+        }
+
+        glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT |
+                     GL_CURRENT_BIT | GL_PIXEL_MODE_BIT);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        glRasterPos2i(0, height);
+        glDrawPixels(width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+        glPopAttrib();
+        free(rgba);
+    }
+
+    SelectObject(dc, old_bitmap);
+    DeleteObject(text_bitmap);
+    DeleteDC(dc);
+    SwapBuffers(g_dc);
 }
 static void create_fonts(HWND hwnd)
 {
