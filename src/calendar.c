@@ -5,6 +5,7 @@
 #include "gahshomar/calendar.h"
 
 #include <stddef.h>
+#include <string.h>
 #include <time.h>
 
 /*
