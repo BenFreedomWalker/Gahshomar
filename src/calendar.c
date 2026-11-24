@@ -151,8 +151,7 @@ static int gh_valid_gregorian_date(int year, int month, int day)
     return day <= limit;
 }
 
-static int gh_jalali_to_month_day(int day_of_year, int leap_code,
-                                  int *month, int *day)
+static int gh_jalali_to_month_day(int day_of_year, int *month, int *day)
 {
     if (month == NULL || day == NULL || day_of_year < 0) {
         return 0;
@@ -168,7 +167,6 @@ static int gh_jalali_to_month_day(int day_of_year, int leap_code,
         *day = 1 + remaining % 30;
     }
 
-    (void)leap_code;
     return *month >= 1 && *month <= 12;
 }
 
@@ -210,7 +208,7 @@ int gh_gregorian_to_imperial(int gregorian_year,
 
     day_of_year = current_jdn - new_year_jdn;
 
-    if (!gh_jalali_to_month_day(day_of_year, 0, &month, &day)) {
+    if (!gh_jalali_to_month_day(day_of_year, &month, &day)) {
         return 0;
     }
 
@@ -251,11 +249,20 @@ int gh_today(GhDate *result)
                                     result);
 }
 
+
+/* Keep public year arithmetic inside the algorithm's documented bounds. */
+static int gh_imperial_year_supported(int imperial_year)
+{
+    return imperial_year >= GH_MIN_IMPERIAL_YEAR &&
+           imperial_year <= GH_MAX_IMPERIAL_YEAR;
+}
+
 int gh_is_leap_year(int imperial_year)
 {
     GhJalaliYearInfo info;
 
-    if (!gh_jalali_year_info(imperial_year - GH_IMPERIAL_YEAR_OFFSET, &info)) {
+    if (!gh_imperial_year_supported(imperial_year) ||
+        !gh_jalali_year_info(imperial_year - GH_IMPERIAL_YEAR_OFFSET, &info)) {
         return 0;
     }
 
@@ -267,6 +274,7 @@ int gh_days_in_month(int imperial_year, int month)
     GhJalaliYearInfo info;
 
     if (month < 1 || month > 12 ||
+        !gh_imperial_year_supported(imperial_year) ||
         !gh_jalali_year_info(imperial_year - GH_IMPERIAL_YEAR_OFFSET, &info)) {
         return 0;
     }
