@@ -32,6 +32,15 @@ int gh_gregorian_to_imperial(int gregorian_year,
                              GhDate *result);
 
 /*
+ * Read the computer's local civil date and convert it to the Imperial
+ * Persian calendar. The system time zone and clock are used; no network
+ * service is contacted.
+ *
+ * Returns 1 on success and 0 if the system date cannot be read or converted.
+ */
+int gh_today(GhDate *result);
+
+/*
  * Return nonzero when the supplied Imperial Persian year is a leap year.
  */
 int gh_is_leap_year(int imperial_year);
