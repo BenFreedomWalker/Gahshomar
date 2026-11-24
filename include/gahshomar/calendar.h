@@ -14,6 +14,10 @@ extern "C" {
 
 #define GH_IMPERIAL_YEAR_OFFSET 1180
 
+/* Borkowski break-year algorithm limits: Solar Hijri -61 through 3177. */
+#define GH_MIN_IMPERIAL_YEAR (GH_IMPERIAL_YEAR_OFFSET - 61)
+#define GH_MAX_IMPERIAL_YEAR (GH_IMPERIAL_YEAR_OFFSET + 3177)
+
 typedef struct GhDate {
     int year;
     int month;
@@ -42,12 +46,13 @@ int gh_today(GhDate *result);
 
 /*
  * Return nonzero when the supplied Imperial Persian year is a leap year.
+ * Return 0 when the year is outside GH_MIN_IMPERIAL_YEAR..GH_MAX_IMPERIAL_YEAR.
  */
 int gh_is_leap_year(int imperial_year);
 
 /*
  * Return the number of days in an Imperial Persian month (1-12).
- * Returns 0 for an invalid month or unsupported year.
+ * Returns 0 for an invalid month or a year outside the supported range.
  */
 int gh_days_in_month(int imperial_year, int month);
 
