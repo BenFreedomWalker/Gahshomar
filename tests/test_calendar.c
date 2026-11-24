@@ -198,6 +198,27 @@ int main(void)
         fail("invalid Gregorian input was accepted");
     }
 
+
+    {
+        char formatted[64];
+        if (!gh_format_number(2585, formatted, sizeof(formatted)) ||
+            strcmp(formatted, "۲۵۸۵") != 0)
+            fail("positive integer was not formatted with Persian digits");
+        if (!gh_format_number(0, formatted, sizeof(formatted)) ||
+            strcmp(formatted, "۰") != 0)
+            fail("zero was not formatted with Persian digits");
+        if (!gh_format_number(-42, formatted, sizeof(formatted)) ||
+            strcmp(formatted, "-۴۲") != 0)
+            fail("negative integer was not formatted safely");
+        if (!gh_format_number(INT_MIN, formatted, sizeof(formatted)))
+            fail("INT_MIN could not be formatted");
+        if (gh_format_number(2585, formatted, 2) != 0 ||
+            formatted[0] != '\\0')
+            fail("undersized number-format buffer was not rejected");
+        if (gh_format_number(1, NULL, sizeof(formatted)) != 0)
+            fail("NULL number-format buffer was not rejected");
+    }
+
     check_full_range_continuity();
 
     if (failures != 0) {
