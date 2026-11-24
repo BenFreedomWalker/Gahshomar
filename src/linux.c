@@ -294,7 +294,7 @@ static void draw_text_overlay(int width, int height)
             (void)snprintf(buffer, sizeof(buffer), "%s / %s / %s",
                            day, month, year);
         else
-            buffer[0] = '\\0';
+            buffer[0] = '\0';
     }
     draw_text(cr, buffer, 126, 76, width - 174, 42,
               21, "#eef0f4", PANGO_ALIGN_LEFT);
@@ -305,7 +305,7 @@ static void draw_text_overlay(int width, int height)
             (void)snprintf(buffer, sizeof(buffer), "%s  %s",
                            gh_month_name(g_ui.view.month), year);
         else
-            buffer[0] = '\\0';
+            buffer[0] = '\0';
     }
     draw_text(cr, buffer, 48, 155, width - 280, 36,
               21, "#efcd85", PANGO_ALIGN_LEFT);
@@ -324,7 +324,7 @@ static void draw_text_overlay(int width, int height)
         int row = index / 7;
         int col = index % 7;
         if (!gh_format_number(y, buffer, sizeof(buffer)))
-            buffer[0] = '\\0';
+            buffer[0] = '\0';
         draw_text(cr, buffer,
                   grid_x + col * cell_w + 5,
                   grid_y + 36 + row * cell_h + 8,
