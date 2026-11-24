@@ -117,6 +117,7 @@ static void render_calendar(void)
     unsigned char *rgba;
     size_t pixel_count;
     int px, py;
+    GLuint text_texture;
 
     if (days <= 0 || width < 360 || height < 360) return;
 
@@ -309,15 +310,35 @@ static void render_calendar(void)
             }
         }
 
+        /*
+         * Composite the overlay as a temporary OpenGL 1.1 texture rather
+         * than glDrawPixels. A textured quad avoids raster-position clipping
+         * at the window edge and uses the same 2D coordinate system as the UI.
+         */
         glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT |
-                     GL_CURRENT_BIT | GL_PIXEL_MODE_BIT);
+                     GL_CURRENT_BIT | GL_TEXTURE_BIT);
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_TEXTURE_2D);
+        glGenTextures(1, &text_texture);
+        glBindTexture(GL_TEXTURE_2D, text_texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-        glRasterPos2i(0, height);
-        glDrawPixels(width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 0.0f);
+        glTexCoord2f(1.0f, 1.0f); glVertex2f((float)width, 0.0f);
+        glTexCoord2f(1.0f, 0.0f); glVertex2f((float)width, (float)height);
+        glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, (float)height);
+        glEnd();
+        glDeleteTextures(1, &text_texture);
         glPopAttrib();
         free(rgba);
     }
