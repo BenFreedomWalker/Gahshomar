@@ -354,7 +354,7 @@ static void render_calendar(void)
 
     {
         static const wchar_t *weekdays[7] =
-            {L"ش", L"ی", L"د", L"س", L"چ", L"پ", L"ج"};
+            {L"ش", L"ی", L"د", L"س", L"چ", L"پ", L"آ"};
         for (col = 0; col < 7; ++col) {
             text_rect.left = grid_x + col * cell_w;
             text_rect.right = text_rect.left + cell_w;
