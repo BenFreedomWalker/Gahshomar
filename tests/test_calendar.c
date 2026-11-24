@@ -34,14 +34,23 @@ int main(void)
 {
     check_date(2026, 11, 24, 2585, 9, 3);
     check_date(2026, 3, 21, 2585, 1, 1);
+    check_date(2025, 3, 20, 2583, 12, 30);
     check_date(2025, 3, 21, 2584, 1, 1);
     check_date(2024, 3, 20, 2583, 1, 1);
 
     if (gh_days_in_month(2585, 1) != 31 ||
         gh_days_in_month(2585, 6) != 31 ||
         gh_days_in_month(2585, 7) != 30 ||
-        gh_days_in_month(2585, 11) != 30) {
+        gh_days_in_month(2585, 11) != 30 ||
+        gh_days_in_month(2583, 12) != 30 ||
+        gh_days_in_month(2584, 12) != 29 ||
+        gh_days_in_month(9000, 1) != 0) {
         fprintf(stderr, "FAIL: month lengths are incorrect\n");
+        ++failures;
+    }
+
+    if (!gh_is_leap_year(2583) || gh_is_leap_year(2584)) {
+        fprintf(stderr, "FAIL: leap-year calculation is incorrect\\n");
         ++failures;
     }
 
