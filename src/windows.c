@@ -92,6 +92,23 @@ static void utf8_to_wide(const char *source, wchar_t *dest, int capacity)
     if (count == 0) dest[0] = L'\0';
 }
 
+static void navigation_rects(RECT *previous, RECT *next)
+{
+    int left = g_client_width - 220;
+    int right = g_client_width - 48;
+    int middle = left + (right - left) / 2;
+
+    next->left = left;
+    next->top = 160;
+    next->right = middle - 4;
+    next->bottom = 190;
+
+    previous->left = middle + 4;
+    previous->top = 160;
+    previous->right = right;
+    previous->bottom = 190;
+}
+
 static void render_calendar(void)
 {
     RECT text_rect;
@@ -246,10 +263,14 @@ static void render_calendar(void)
                   RGB(239, 205, 133), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     }
 
-    text_rect.left = width - 220; text_rect.top = 160;
-    text_rect.right = width - 48; text_rect.bottom = 190;
-    draw_text(dc, L"‹ قبلی       بعدی ›", text_rect, g_font_small,
-              RGB(177, 190, 207), DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+    {
+        RECT previous_rect, next_rect;
+        navigation_rects(&previous_rect, &next_rect);
+        draw_text(dc, L"بعدی ›", next_rect, g_font_small,
+                  RGB(177, 190, 207), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        draw_text(dc, L"‹ قبلی", previous_rect, g_font_small,
+                  RGB(177, 190, 207), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
 
     {
         static const wchar_t *weekdays[7] =
@@ -448,11 +469,17 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message,
         return 0;
 
     case WM_LBUTTONDOWN:
-        if (HIWORD(lparam) < 205 && HIWORD(lparam) > 155) {
-            int x = LOWORD(lparam);
-            if (x > g_client_width - 220) {
-                if (x > g_client_width - 120) move_month(1);
-                else move_month(-1);
+        {
+            POINT point;
+            RECT previous_rect, next_rect;
+            point.x = (short)LOWORD(lparam);
+            point.y = (short)HIWORD(lparam);
+            navigation_rects(&previous_rect, &next_rect);
+            if (PtInRect(&previous_rect, point)) {
+                move_month(-1);
+                InvalidateRect(hwnd, NULL, FALSE);
+            } else if (PtInRect(&next_rect, point)) {
+                move_month(1);
                 InvalidateRect(hwnd, NULL, FALSE);
             }
         }
