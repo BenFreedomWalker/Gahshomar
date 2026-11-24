@@ -274,7 +274,7 @@ static void draw_text_overlay(int width, int height)
                       g_ui.today.month == g_ui.view.month;
     char buffer[128];
     static const char *weekdays[7] = {
-        "ش", "ی", "د", "س", "چ", "پ", "ج"
+        "ش", "ی", "د", "س", "چ", "پ", "آ"
     };
 
     surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
