@@ -317,7 +317,7 @@ static void render_calendar(void)
             utf8_to_wide(utf8, buffer,
                          (int)(sizeof(buffer) / sizeof(buffer[0])));
         } else {
-            buffer[0] = L'\\0';
+            buffer[0] = L'\0';
         }
     }
     text_rect.top = 76; text_rect.bottom = 120;
@@ -325,10 +325,7 @@ static void render_calendar(void)
               RGB(238, 240, 244), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
     {
-        wchar_t month_name[64];
         wchar_t heading[128];
-        utf8_to_wide(gh_month_name(g_view.month), month_name,
-                     (int)(sizeof(month_name) / sizeof(month_name[0])));
         {
             char year[32], utf8[128];
             if (gh_format_number(g_view.year, year, sizeof(year))) {
@@ -337,7 +334,7 @@ static void render_calendar(void)
                 utf8_to_wide(utf8, heading,
                              (int)(sizeof(heading) / sizeof(heading[0])));
             } else {
-                heading[0] = L'\\0';
+                heading[0] = L'\0';
             }
         }
         text_rect.left = 48; text_rect.top = 160;
@@ -378,7 +375,7 @@ static void render_calendar(void)
                 utf8_to_wide(utf8, day_text,
                              (int)(sizeof(day_text) / sizeof(day_text[0])));
             else
-                day_text[0] = L'\\0';
+                day_text[0] = L'\0';
         }
         text_rect.left = grid_x + col * cell_w + 5;
         text_rect.top = grid_y + 36 + row * cell_h + 8;
