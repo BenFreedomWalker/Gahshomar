@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "gahshomar/calendar.h"
+#include "faravahar.h"
 
 #define WINDOW_CLASS_NAME L"GahshomarWindow"
 #define WINDOW_TITLE      L"گاه‌شمار"
@@ -90,6 +91,62 @@ static void utf8_to_wide(const char *source, wchar_t *dest, int capacity)
     if (capacity <= 0) return;
     count = MultiByteToWideChar(CP_UTF8, 0, source, -1, dest, capacity);
     if (count == 0) dest[0] = L'\0';
+}
+
+static int base64_value(char c)
+{
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+    if (c >= '0' && c <= '9') return c - '0' + 52;
+    if (c == '+') return 62;
+    if (c == '/') return 63;
+    return -1;
+}
+
+/* Composite the embedded transparent Faravahar artwork into the text DIB. */
+static void draw_faravahar(unsigned char *dib, int canvas_width,
+                           int canvas_height, int x, int y)
+{
+    static unsigned char alpha[FARAVAHAR_WIDTH * FARAVAHAR_HEIGHT];
+    static int decoded;
+    int row, col;
+
+    if (!decoded) {
+        unsigned int accumulator = 0;
+        int bits = 0;
+        size_t output = 0;
+        const char *source = faravahar_alpha_base64;
+        while (*source && output < sizeof(alpha)) {
+            int value = base64_value(*source++);
+            if (value < 0) continue;
+            accumulator = (accumulator << 6) | (unsigned int)value;
+            bits += 6;
+            if (bits >= 8) {
+                bits -= 8;
+                alpha[output++] = (unsigned char)(accumulator >> bits);
+            }
+        }
+        if (output != sizeof(alpha)) return;
+        decoded = 1;
+    }
+
+    for (row = 0; row < FARAVAHAR_HEIGHT; ++row) {
+        int py = y + row;
+        if (py < 0 || py >= canvas_height) continue;
+        for (col = 0; col < FARAVAHAR_WIDTH; ++col) {
+            int px = x + col;
+            unsigned int coverage;
+            size_t offset;
+            if (px < 0 || px >= canvas_width) continue;
+            coverage = alpha[row * FARAVAHAR_WIDTH + col];
+            if (!coverage) continue;
+            offset = ((size_t)py * (size_t)canvas_width + (size_t)px) * 4u;
+            /* Warm gold, premultiplied for the existing black-backed DIB. */
+            dib[offset]     = (unsigned char)(coverage * 0.66f);
+            dib[offset + 1] = (unsigned char)(coverage * 0.91f);
+            dib[offset + 2] = (unsigned char)coverage;
+        }
+    }
 }
 
 static void navigation_rects(RECT *previous, RECT *next)
