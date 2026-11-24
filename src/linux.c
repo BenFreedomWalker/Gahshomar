@@ -799,11 +799,15 @@ static int run_wayland(void)
     (void)wl_display_roundtrip(g_wl.display);
     refresh_today();
 
-    while (g_ui.running && wl_display_dispatch(g_wl.display) >= 0) {
+    while (g_ui.running) {
+        /* Render pending work before dispatch can block for another event. */
         if (g_wl.configured && g_ui.dirty) {
             render();
             eglSwapBuffers(g_wl.egl_display, g_wl.egl_surface);
         }
+
+        if (wl_display_dispatch(g_wl.display) < 0)
+            break;
     }
 
     eglMakeCurrent(g_wl.egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
