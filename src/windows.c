@@ -11,6 +11,7 @@
 #include <GL/gl.h>
 #include <time.h>
 #include <wchar.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -306,8 +307,19 @@ static void render_calendar(void)
     draw_text(dc, L"گاه‌شمار", text_rect, g_font_title,
               RGB(239, 205, 133), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
-    swprintf(buffer, sizeof(buffer) / sizeof(buffer[0]),
-             L"%d / %d / %d", g_today.day, g_today.month, g_today.year);
+    {
+        char day[32], month[32], year[32], utf8[128];
+        if (gh_format_number(g_today.day, day, sizeof(day)) &&
+            gh_format_number(g_today.month, month, sizeof(month)) &&
+            gh_format_number(g_today.year, year, sizeof(year))) {
+            (void)snprintf(utf8, sizeof(utf8), "%s / %s / %s",
+                           day, month, year);
+            utf8_to_wide(utf8, buffer,
+                         (int)(sizeof(buffer) / sizeof(buffer[0])));
+        } else {
+            buffer[0] = L'\\0';
+        }
+    }
     text_rect.top = 76; text_rect.bottom = 120;
     draw_text(dc, buffer, text_rect, g_font_body,
               RGB(238, 240, 244), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
@@ -317,8 +329,17 @@ static void render_calendar(void)
         wchar_t heading[128];
         utf8_to_wide(gh_month_name(g_view.month), month_name,
                      (int)(sizeof(month_name) / sizeof(month_name[0])));
-        swprintf(heading, sizeof(heading) / sizeof(heading[0]),
-                 L"%ls  %d", month_name, g_view.year);
+        {
+            char year[32], utf8[128];
+            if (gh_format_number(g_view.year, year, sizeof(year))) {
+                (void)snprintf(utf8, sizeof(utf8), "%s  %s",
+                               gh_month_name(g_view.month), year);
+                utf8_to_wide(utf8, heading,
+                             (int)(sizeof(heading) / sizeof(heading[0])));
+            } else {
+                heading[0] = L'\\0';
+            }
+        }
         text_rect.left = 48; text_rect.top = 160;
         text_rect.right = width - 230; text_rect.bottom = 190;
         draw_text(dc, heading, text_rect, g_font_body,
@@ -351,8 +372,14 @@ static void render_calendar(void)
         int index = start_day + day - 1;
         row = index / 7;
         col = index % 7;
-        swprintf(day_text, sizeof(day_text) / sizeof(day_text[0]),
-                 L"%d", day);
+        {
+            char utf8[32];
+            if (gh_format_number(day, utf8, sizeof(utf8)))
+                utf8_to_wide(utf8, day_text,
+                             (int)(sizeof(day_text) / sizeof(day_text[0])));
+            else
+                day_text[0] = L'\\0';
+        }
         text_rect.left = grid_x + col * cell_w + 5;
         text_rect.top = grid_y + 36 + row * cell_h + 8;
         text_rect.right = text_rect.left + cell_w - 10;
