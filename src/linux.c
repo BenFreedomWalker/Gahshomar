@@ -286,13 +286,27 @@ static void draw_text_overlay(int width, int height)
     draw_text(cr, "گاه‌شمار", 126, 22, width - 174, 46,
               30, "#efcd85", PANGO_ALIGN_LEFT);
 
-    (void)snprintf(buffer, sizeof(buffer), "%d / %d / %d",
-                   g_ui.today.day, g_ui.today.month, g_ui.today.year);
+    {
+        char day[32], month[32], year[32];
+        if (gh_format_number(g_ui.today.day, day, sizeof(day)) &&
+            gh_format_number(g_ui.today.month, month, sizeof(month)) &&
+            gh_format_number(g_ui.today.year, year, sizeof(year)))
+            (void)snprintf(buffer, sizeof(buffer), "%s / %s / %s",
+                           day, month, year);
+        else
+            buffer[0] = '\\0';
+    }
     draw_text(cr, buffer, 126, 76, width - 174, 42,
               21, "#eef0f4", PANGO_ALIGN_LEFT);
 
-    (void)snprintf(buffer, sizeof(buffer), "%s  %d",
-                   gh_month_name(g_ui.view.month), g_ui.view.year);
+    {
+        char year[32];
+        if (gh_format_number(g_ui.view.year, year, sizeof(year)))
+            (void)snprintf(buffer, sizeof(buffer), "%s  %s",
+                           gh_month_name(g_ui.view.month), year);
+        else
+            buffer[0] = '\\0';
+    }
     draw_text(cr, buffer, 48, 155, width - 280, 36,
               21, "#efcd85", PANGO_ALIGN_LEFT);
     draw_text(cr, "بعدی ›", width - 220, 155, 82, 36,
@@ -309,7 +323,8 @@ static void draw_text_overlay(int width, int height)
         int index = first + y - 1;
         int row = index / 7;
         int col = index % 7;
-        (void)snprintf(buffer, sizeof(buffer), "%d", y);
+        if (!gh_format_number(y, buffer, sizeof(buffer)))
+            buffer[0] = '\\0';
         draw_text(cr, buffer,
                   grid_x + col * cell_w + 5,
                   grid_y + 36 + row * cell_h + 8,
