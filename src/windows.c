@@ -119,7 +119,7 @@ static void render_calendar(void)
     int px, py;
     GLuint text_texture;
     unsigned char *texture_pixels;
-    int texture_width, texture_height, tx;
+    int texture_width, texture_height;
 
     if (days <= 0 || width < 360 || height < 360) return;
 
