@@ -112,21 +112,25 @@ static void draw_faravahar(unsigned char *dib, int canvas_width,
     int row, col;
 
     if (!decoded) {
+        unsigned char packed[(FARAVAHAR_WIDTH * FARAVAHAR_HEIGHT + 7) / 8];
         unsigned int accumulator = 0;
         int bits = 0;
         size_t output = 0;
+        size_t i;
         const char *source = faravahar_alpha_base64;
-        while (*source && output < sizeof(alpha)) {
+        while (*source && output < sizeof(packed)) {
             int value = base64_value(*source++);
             if (value < 0) continue;
             accumulator = (accumulator << 6) | (unsigned int)value;
             bits += 6;
             if (bits >= 8) {
                 bits -= 8;
-                alpha[output++] = (unsigned char)(accumulator >> bits);
+                packed[output++] = (unsigned char)(accumulator >> bits);
             }
         }
-        if (output != sizeof(alpha)) return;
+        if (output != sizeof(packed)) return;
+        for (i = 0; i < sizeof(alpha); ++i)
+            alpha[i] = (packed[i / 8] & (0x80u >> (i % 8))) ? 255u : 0u;
         decoded = 1;
     }
 
@@ -295,9 +299,9 @@ static void render_calendar(void)
 
     old_bitmap = SelectObject(dc, text_bitmap);
     PatBlt(dc, 0, 0, width, height, BLACKNESS);
-    draw_faravahar((unsigned char *)dib_bits, width, height, 48, 25);
+    draw_faravahar((unsigned char *)dib_bits, width, height, 48, 27);
 
-    text_rect.left = 146; text_rect.top = 22;
+    text_rect.left = 126; text_rect.top = 22;
     text_rect.right = width - 48; text_rect.bottom = 68;
     draw_text(dc, L"گاه‌شمار", text_rect, g_font_title,
               RGB(239, 205, 133), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
