@@ -229,7 +229,10 @@ int gh_is_leap_year(int imperial_year)
 
 int gh_days_in_month(int imperial_year, int month)
 {
-    if (month < 1 || month > 12) {
+    GhJalaliYearInfo info;
+
+    if (month < 1 || month > 12 ||
+        !gh_jalali_year_info(imperial_year - GH_IMPERIAL_YEAR_OFFSET, &info)) {
         return 0;
     }
 
@@ -241,12 +244,7 @@ int gh_days_in_month(int imperial_year, int month)
         return 30;
     }
 
-    if (gh_jalali_year_info(imperial_year - GH_IMPERIAL_YEAR_OFFSET,
-                            &(GhJalaliYearInfo){0}) == 0) {
-        return 0;
-    }
-
-    return gh_is_leap_year(imperial_year) ? 30 : 29;
+    return info.leap_code == 0 ? 30 : 29;
 }
 
 const char *gh_month_name(int month)
