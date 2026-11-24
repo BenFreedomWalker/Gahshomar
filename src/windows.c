@@ -118,6 +118,8 @@ static void render_calendar(void)
     size_t pixel_count;
     int px, py;
     GLuint text_texture;
+    unsigned char *texture_pixels;
+    int texture_width, texture_height, tx;
 
     if (days <= 0 || width < 360 || height < 360) return;
 
@@ -311,10 +313,28 @@ static void render_calendar(void)
         }
 
         /*
-         * Composite the overlay as a temporary OpenGL 1.1 texture rather
-         * than glDrawPixels. A textured quad avoids raster-position clipping
-         * at the window edge and uses the same 2D coordinate system as the UI.
+         * OpenGL 1.1 requires power-of-two texture dimensions. Pad the
+         * client-sized overlay so it also works on older Windows drivers.
          */
+        texture_width = 1;
+        texture_height = 1;
+        while (texture_width < width) texture_width <<= 1;
+        while (texture_height < height) texture_height <<= 1;
+        texture_pixels = (unsigned char *)calloc(
+            (size_t)texture_width * (size_t)texture_height, 4u);
+        if (texture_pixels) {
+            for (py = 0; py < height; ++py) {
+                memcpy(texture_pixels + (size_t)py * (size_t)texture_width * 4u,
+                       rgba + (size_t)py * (size_t)width * 4u,
+                       (size_t)width * 4u);
+            }
+        }
+
+        /*
+         * Composite the overlay as a temporary OpenGL 1.1 texture. A
+         * textured quad avoids raster-position clipping at the window edge.
+         */
+        if (texture_pixels) {
         glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT |
                      GL_CURRENT_BIT | GL_TEXTURE_BIT);
         glDisable(GL_DEPTH_TEST);
@@ -328,18 +348,26 @@ static void render_calendar(void)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                     texture_width, texture_height, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, texture_pixels);
         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         glBegin(GL_QUADS);
-        glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 0.0f);
-        glTexCoord2f(1.0f, 1.0f); glVertex2f((float)width, 0.0f);
-        glTexCoord2f(1.0f, 0.0f); glVertex2f((float)width, (float)height);
-        glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, (float)height);
+        glTexCoord2f(0.0f, (float)height / (float)texture_height);
+        glVertex2f(0.0f, 0.0f);
+        glTexCoord2f((float)width / (float)texture_width,
+                     (float)height / (float)texture_height);
+        glVertex2f((float)width, 0.0f);
+        glTexCoord2f((float)width / (float)texture_width, 0.0f);
+        glVertex2f((float)width, (float)height);
+        glTexCoord2f(0.0f, 0.0f);
+        glVertex2f(0.0f, (float)height);
         glEnd();
         glDeleteTextures(1, &text_texture);
         glPopAttrib();
+        free(texture_pixels);
+        }
         free(rgba);
     }
 
