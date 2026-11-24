@@ -295,8 +295,9 @@ static void render_calendar(void)
 
     old_bitmap = SelectObject(dc, text_bitmap);
     PatBlt(dc, 0, 0, width, height, BLACKNESS);
+    draw_faravahar((unsigned char *)dib_bits, width, height, 48, 25);
 
-    text_rect.left = 48; text_rect.top = 22;
+    text_rect.left = 146; text_rect.top = 22;
     text_rect.right = width - 48; text_rect.bottom = 68;
     draw_text(dc, L"گاه‌شمار", text_rect, g_font_title,
               RGB(239, 205, 133), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
