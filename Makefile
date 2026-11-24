@@ -62,13 +62,13 @@ LINUX_WAYLAND_LIBS = $(shell pkg-config --libs wayland-client wayland-egl egl)
 LINUX_WAYLAND_DEFINE = -DGH_HAVE_WAYLAND
 LINUX_WAYLAND_SOURCE = $(BUILD_DIR)/xdg-shell-protocol.c
 LINUX_WAYLAND_HEADER = $(BUILD_DIR)/xdg-shell-client-protocol.h
-endif
 
 $(LINUX_WAYLAND_HEADER): $(WAYLAND_XML) | $(BUILD_DIR)
 	wayland-scanner client-header $< $@
 
 $(LINUX_WAYLAND_SOURCE): $(WAYLAND_XML) | $(BUILD_DIR)
 	wayland-scanner private-code $< $@
+endif
 
 $(LINUX_APP_PROGRAM): src/linux.c $(CORE_OBJECTS) include/gahshomar/calendar.h $(LINUX_WAYLAND_SOURCE) $(LINUX_WAYLAND_HEADER)
 	@pkg-config --exists $(LINUX_BASE_PACKAGES) || { echo "Missing Linux development packages: $(LINUX_BASE_PACKAGES)"; exit 1; }
