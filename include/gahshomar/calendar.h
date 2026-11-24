@@ -1,6 +1,8 @@
 #ifndef GAHSHOMAR_CALENDAR_H
 #define GAHSHOMAR_CALENDAR_H
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -60,6 +62,11 @@ int gh_days_in_month(int imperial_year, int month);
  * Return the Persian name of a month (UTF-8), or NULL for an invalid month.
  */
 const char *gh_month_name(int month);
+
+/* Format a signed integer using Persian digits (۰۱۲۳۴۵۶۷۸۹) as UTF-8.
+ * Returns 1 on success; returns 0 for a NULL/undersized output buffer.
+ */
+int gh_format_number(int value, char *buffer, size_t capacity);
 
 #ifdef __cplusplus
 }
