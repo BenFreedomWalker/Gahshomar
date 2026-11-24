@@ -10,7 +10,6 @@
 #include <windows.h>
 #include <GL/gl.h>
 #include <time.h>
-#include <stdio.h>
 #include <wchar.h>
 
 #include "gahshomar/calendar.h"
@@ -21,6 +20,7 @@
 #define TIMER_INTERVAL_MS 60000
 
 static HDC g_dc;
+static HWND g_hwnd;
 static HGLRC g_gl;
 static GhDate g_today;
 static GhDate g_view;
@@ -29,19 +29,6 @@ static int g_client_height = 600;
 static HFONT g_font_title;
 static HFONT g_font_body;
 static HFONT g_font_small;
-
-static int is_leap_gregorian(int year)
-{
-    return (year % 400 == 0) || ((year % 4 == 0) && (year % 100 != 0));
-}
-
-static int days_in_gregorian_month(int year, int month)
-{
-    static const int lengths[12] =
-        {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    if (month == 2 && is_leap_gregorian(year)) return 29;
-    return lengths[month - 1];
-}
 
 static void refresh_today(void)
 {
@@ -105,11 +92,9 @@ static void utf8_to_wide(const char *source, wchar_t *dest, int capacity)
 
 static void render_calendar(void)
 {
-    RECT client;
     RECT text_rect;
     wchar_t buffer[128];
     wchar_t day_text[8];
-    char month_utf8[64];
     int width = g_client_width;
     int height = g_client_height;
     int days = gh_days_in_month(g_view.year, g_view.month);
@@ -121,7 +106,7 @@ static void render_calendar(void)
     int grid_x = 48, grid_y = 190;
     int grid_w = width - 96;
     int grid_h = height - 230;
-    int start_day = 0;
+    int start_day;
     HDC dc;
 
     if (days <= 0 || width < 360 || height < 360) return;
@@ -135,50 +120,12 @@ static void render_calendar(void)
 
     glClearColor(0.055f, 0.075f, 0.11f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-
     draw_rect(0, 0, (float)width, 142, 0.075f, 0.105f, 0.15f);
     draw_rect(48, 151, (float)(width - 96), 1, 0.22f, 0.29f, 0.38f);
 
-    dc = GetDC(GetActiveWindow());
-    if (!dc) {
-        SwapBuffers(g_dc);
-        return;
-    }
-    GetClientRect(GetActiveWindow(), &client);
-
-    /* Title and current date. */
-    text_rect.left = 48; text_rect.top = 22;
-    text_rect.right = width - 48; text_rect.bottom = 68;
-    draw_text(dc, L"گاه‌شمار", text_rect, g_font_title,
-              RGB(239, 205, 133), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-
-    swprintf(buffer, sizeof(buffer) / sizeof(buffer[0]),
-             L"%d / %d / %d", g_today.day, g_today.month, g_today.year);
-    text_rect.top = 76; text_rect.bottom = 120;
-    draw_text(dc, buffer, text_rect, g_font_body,
-              RGB(238, 240, 244), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-
-    /* Month heading and navigation hints. */
-    utf8_to_wide(gh_month_name(g_view.month), buffer,
-                 (int)(sizeof(buffer) / sizeof(buffer[0])));
-    swprintf(day_text, sizeof(day_text) / sizeof(day_text[0]),
-             L"%d", g_view.year);
-    {
-        wchar_t heading[128];
-        swprintf(heading, sizeof(heading) / sizeof(heading[0]),
-                 L"%ls  %ls", buffer, day_text);
-        text_rect.left = 48; text_rect.top = 160;
-        text_rect.right = width - 48; text_rect.bottom = 190;
-        draw_text(dc, heading, text_rect, g_font_body,
-                  RGB(239, 205, 133), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-    }
-    text_rect.left = width - 210; text_rect.right = width - 48;
-    draw_text(dc, L"‹ قبلی       بعدی ›", text_rect, g_font_small,
-              RGB(177, 190, 207), DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
-
     /*
-     * Derive the weekday of the first day of the displayed month from the
-     * operating system's local weekday and today's position in this month.
+     * Find the weekday of the first day of the displayed month. tm_wday
+     * uses Sunday=0; the Persian calendar grid starts on Saturday.
      */
     {
         time_t now = time(NULL);
@@ -188,18 +135,20 @@ static void render_calendar(void)
 #else
         if (localtime_r(&now, &local_tm) != NULL) {
 #endif
-            int offset = g_today.day - 1;
-            int weekday = (local_tm.tm_wday - (offset % 7) + 7) % 7;
+            int weekday = (local_tm.tm_wday - ((g_today.day - 1) % 7) + 7) % 7;
             int m = g_today.month;
             int y = g_today.year;
-            while (y != g_view.year || m != g_view.month) {
-                if (y * 12 + m - 1 < g_view.year * 12 + g_view.month - 1) {
-                    weekday = (weekday + gh_days_in_month(y, m)) % 7;
-                    if (++m == 13) { m = 1; ++y; }
-                } else {
-                    if (--m == 0) { m = 12; --y; }
-                    weekday = (weekday - gh_days_in_month(y, m) % 7 + 7) % 7;
-                }
+            int current_index = y * 12 + m - 1;
+            int target_index = g_view.year * 12 + g_view.month - 1;
+            while (current_index < target_index) {
+                weekday = (weekday + gh_days_in_month(y, m)) % 7;
+                if (++m == 13) { m = 1; ++y; }
+                ++current_index;
+            }
+            while (current_index > target_index) {
+                if (--m == 0) { m = 12; --y; }
+                weekday = (weekday - (gh_days_in_month(y, m) % 7) + 7) % 7;
+                --current_index;
             }
             first_weekday = weekday;
         }
@@ -207,23 +156,9 @@ static void render_calendar(void)
 
     cell_w = grid_w / 7;
     cell_h = grid_h / 6;
-
-    /* Weekday headings, ordered from Saturday for the Persian week. */
-    {
-        static const wchar_t *weekdays[7] =
-            {L"ش", L"ی", L"د", L"س", L"چ", L"پ", L"ج"};
-        for (col = 0; col < 7; ++col) {
-            text_rect.left = grid_x + col * cell_w;
-            text_rect.right = text_rect.left + cell_w;
-            text_rect.top = grid_y;
-            text_rect.bottom = grid_y + 30;
-            draw_text(dc, weekdays[col], text_rect, g_font_small,
-                      RGB(143, 160, 181), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        }
-    }
-
-    /* Convert Sunday-based weekday to a Saturday-first column index. */
     start_day = (first_weekday + 1) % 7;
+
+    /* Draw all calendar cells before swapping the OpenGL back buffer. */
     for (day = 1; day <= days; ++day) {
         int index = start_day + day - 1;
         row = index / 7;
@@ -242,22 +177,79 @@ static void render_calendar(void)
                          is_today ? 0.78f : 0.18f,
                          is_today ? 0.57f : 0.23f,
                          is_today ? 0.29f : 0.31f);
-            swprintf(day_text, sizeof(day_text) / sizeof(day_text[0]),
-                     L"%d", day);
-            text_rect.left = (LONG)x;
-            text_rect.top = (LONG)y + 8;
-            text_rect.right = (LONG)(x + w);
-            text_rect.bottom = (LONG)(y + h);
-            draw_text(dc, day_text, text_rect, g_font_body,
-                      is_today ? RGB(255, 225, 170) : RGB(226, 232, 240),
-                      DT_CENTER | DT_TOP | DT_SINGLELINE);
         }
     }
 
-    ReleaseDC(GetActiveWindow(), dc);
     SwapBuffers(g_dc);
-}
 
+    /*
+     * Draw text after the OpenGL swap. GDI's Unicode text layout handles
+     * Persian shaping and RTL display; drawing it after the swap keeps it
+     * visible over the OpenGL front buffer.
+     */
+    dc = GetDC(g_hwnd);
+    if (!dc) return;
+
+    text_rect.left = 48; text_rect.top = 22;
+    text_rect.right = width - 48; text_rect.bottom = 68;
+    draw_text(dc, L"گاه‌شمار", text_rect, g_font_title,
+              RGB(239, 205, 133), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+
+    swprintf(buffer, sizeof(buffer) / sizeof(buffer[0]),
+             L"%d / %d / %d", g_today.day, g_today.month, g_today.year);
+    text_rect.top = 76; text_rect.bottom = 120;
+    draw_text(dc, buffer, text_rect, g_font_body,
+              RGB(238, 240, 244), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+
+    {
+        wchar_t month_name[64];
+        wchar_t heading[128];
+        utf8_to_wide(gh_month_name(g_view.month), month_name,
+                     (int)(sizeof(month_name) / sizeof(month_name[0])));
+        swprintf(heading, sizeof(heading) / sizeof(heading[0]),
+                 L"%ls  %d", month_name, g_view.year);
+        text_rect.left = 48; text_rect.top = 160;
+        text_rect.right = width - 230; text_rect.bottom = 190;
+        draw_text(dc, heading, text_rect, g_font_body,
+                  RGB(239, 205, 133), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    }
+
+    text_rect.left = width - 220; text_rect.top = 160;
+    text_rect.right = width - 48; text_rect.bottom = 190;
+    draw_text(dc, L"‹ قبلی       بعدی ›", text_rect, g_font_small,
+              RGB(177, 190, 207), DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+
+    {
+        static const wchar_t *weekdays[7] =
+            {L"ش", L"ی", L"د", L"س", L"چ", L"پ", L"ج"};
+        for (col = 0; col < 7; ++col) {
+            text_rect.left = grid_x + col * cell_w;
+            text_rect.right = text_rect.left + cell_w;
+            text_rect.top = grid_y;
+            text_rect.bottom = grid_y + 30;
+            draw_text(dc, weekdays[col], text_rect, g_font_small,
+                      RGB(143, 160, 181), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        }
+    }
+
+    for (day = 1; day <= days; ++day) {
+        int index = start_day + day - 1;
+        row = index / 7;
+        col = index % 7;
+        swprintf(day_text, sizeof(day_text) / sizeof(day_text[0]),
+                 L"%d", day);
+        text_rect.left = grid_x + col * cell_w + 5;
+        text_rect.top = grid_y + 36 + row * cell_h + 8;
+        text_rect.right = text_rect.left + cell_w - 10;
+        text_rect.bottom = grid_y + 36 + (row + 1) * cell_h - 8;
+        draw_text(dc, day_text, text_rect, g_font_body,
+                  (today_is_viewed_month && day == g_today.day)
+                    ? RGB(255, 225, 170) : RGB(226, 232, 240),
+                  DT_CENTER | DT_TOP | DT_SINGLELINE);
+    }
+
+    ReleaseDC(g_hwnd, dc);
+}
 static void create_fonts(HWND hwnd)
 {
     g_font_title = CreateFontW(30, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
@@ -293,6 +285,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT message,
 {
     switch (message) {
     case WM_CREATE:
+        g_hwnd = hwnd;
         g_dc = GetDC(hwnd);
         {
             PIXELFORMATDESCRIPTOR pfd;
