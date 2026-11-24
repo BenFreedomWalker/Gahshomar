@@ -126,7 +126,7 @@ static void check_full_range_continuity(void)
         }
     }
 
-    if (checked != 166463UL) {
+    if (checked != 166551UL) {
         fprintf(stderr, "FAIL: checked unexpected number of dates: %lu\n",
                 checked);
         ++failures;
@@ -205,6 +205,6 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    puts("All calendar tests passed (166,463 Gregorian dates checked).");
+    puts("All calendar tests passed (166,551 Gregorian dates checked).");
     return EXIT_SUCCESS;
 }
