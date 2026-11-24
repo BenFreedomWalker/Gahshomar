@@ -4,7 +4,16 @@ AR = ar
 CFLAGS = -std=c99 -O2 -Wall -Wextra -Wpedantic
 CPPFLAGS = -Iinclude
 
-BUILD_DIR = build
+UNAME_S := $(shell uname -s 2>/dev/null)
+
+# Keep compiler outputs separate: MinGW/PE objects cannot be linked by GCC/ELF.
+ifeq ($(OS),Windows_NT)
+BUILD_DIR = build/windows
+else ifeq ($(UNAME_S),Linux)
+BUILD_DIR = build/linux
+else
+BUILD_DIR = build/other
+endif
 LIBRARY = $(BUILD_DIR)/libgahshomar.a
 TEST_PROGRAM = $(BUILD_DIR)/calendar_tests.exe
 WINDOWS_APP_PROGRAM = $(BUILD_DIR)/gahshomar.exe
@@ -12,8 +21,6 @@ LINUX_APP_PROGRAM = $(BUILD_DIR)/gahshomar
 
 CORE_OBJECTS = $(BUILD_DIR)/calendar.o
 TEST_OBJECTS = $(BUILD_DIR)/test_calendar.o
-
-UNAME_S := $(shell uname -s 2>/dev/null)
 
 .PHONY: all test clean app
 
