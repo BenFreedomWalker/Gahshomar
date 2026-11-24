@@ -1,6 +1,7 @@
 #include "gahshomar/calendar.h"
 
 #include <stddef.h>
+#include <time.h>
 
 /*
  * The conversion follows the break-year Jalali calendar calculation.
@@ -214,6 +215,36 @@ int gh_gregorian_to_imperial(int gregorian_year,
     result->day = day;
 
     return 1;
+}
+
+int gh_today(GhDate *result)
+{
+    time_t now;
+    struct tm local_date;
+
+    if (result == NULL) {
+        return 0;
+    }
+
+    now = time(NULL);
+    if (now == (time_t)-1) {
+        return 0;
+    }
+
+#if defined(_WIN32)
+    if (localtime_s(&local_date, &now) != 0) {
+        return 0;
+    }
+#else
+    if (localtime_r(&now, &local_date) == NULL) {
+        return 0;
+    }
+#endif
+
+    return gh_gregorian_to_imperial(local_date.tm_year + 1900,
+                                    local_date.tm_mon + 1,
+                                    local_date.tm_mday,
+                                    result);
 }
 
 int gh_is_leap_year(int imperial_year)
