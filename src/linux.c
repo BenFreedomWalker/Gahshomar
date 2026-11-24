@@ -308,11 +308,12 @@ static void draw_text_overlay(int width, int height)
                              GL_RGBA, GL_UNSIGNED_BYTE, padded);
                 glColor4f(1, 1, 1, 1);
                 glBegin(GL_QUADS);
-                glTexCoord2f(0, (float)height / th); glVertex2f(0, 0);
-                glTexCoord2f((float)width / tw, (float)height / th);
+                glTexCoord2f(0, 0); glVertex2f(0, 0);
+                glTexCoord2f((float)width / tw, 0);
                 glVertex2f((float)width, 0);
-                glTexCoord2f((float)width / tw, 0); glVertex2f((float)width, (float)height);
-                glTexCoord2f(0, 0); glVertex2f(0, (float)height);
+                glTexCoord2f((float)width / tw, (float)height / th);
+                glVertex2f((float)width, (float)height);
+                glTexCoord2f(0, (float)height / th); glVertex2f(0, (float)height);
                 glEnd();
                 glDeleteTextures(1, &texture);
                 free(padded);
@@ -578,7 +579,9 @@ static void pointer_enter(void *data, struct wl_pointer *pointer,
                           uint32_t serial, struct wl_surface *surface,
                           wl_fixed_t sx, wl_fixed_t sy)
 {
-    (void)data; (void)pointer; (void)serial; (void)surface; (void)sx; (void)sy;
+    (void)data; (void)pointer; (void)serial; (void)surface;
+    g_wl.pointer_x = wl_fixed_to_double(sx);
+    g_wl.pointer_y = wl_fixed_to_double(sy);
 }
 
 static void pointer_leave(void *data, struct wl_pointer *pointer,
