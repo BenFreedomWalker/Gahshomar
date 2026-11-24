@@ -213,7 +213,7 @@ int main(void)
         if (!gh_format_number(INT_MIN, formatted, sizeof(formatted)))
             fail("INT_MIN could not be formatted");
         if (gh_format_number(2585, formatted, 2) != 0 ||
-            formatted[0] != '\\0')
+            formatted[0] != '\0')
             fail("undersized number-format buffer was not rejected");
         if (gh_format_number(1, NULL, sizeof(formatted)) != 0)
             fail("NULL number-format buffer was not rejected");
