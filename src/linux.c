@@ -22,6 +22,7 @@
 #include <pango/pangocairo.h>
 
 #include "gahshomar/calendar.h"
+#include "faravahar.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -143,24 +144,78 @@ static void outline_rect(float x, float y, float w, float h,
     glEnd();
 }
 
+static int base64_value(char c)
+{
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+    if (c >= '0' && c <= '9') return c - '0' + 52;
+    if (c == '+') return 62;
+    if (c == '/') return 63;
+    return -1;
+}
+
 static void draw_mark(void)
 {
-    /* A small geometric gold mark in the header, drawn without a font glyph. */
-    glColor3f(0.88f, 0.69f, 0.35f);
-    glLineWidth(2.0f);
-    glBegin(GL_LINE_LOOP);
-    glVertex2f(48, 42);
-    glVertex2f(62, 27);
-    glVertex2f(76, 42);
-    glVertex2f(62, 57);
+    static GLuint texture;
+    static int initialized;
+    unsigned char pixels[64 * 32 * 4];
+    unsigned char packed[(FARAVAHAR_WIDTH * FARAVAHAR_HEIGHT + 7) / 8];
+    unsigned int accumulator = 0;
+    int bits = 0;
+    size_t output = 0;
+    size_t i;
+    const char *source = faravahar_alpha_base64;
+
+    if (!initialized) {
+        memset(pixels, 0, sizeof(pixels));
+        while (*source && output < sizeof(packed)) {
+            int value = base64_value(*source++);
+            if (value < 0) continue;
+            accumulator = (accumulator << 6) | (unsigned int)value;
+            bits += 6;
+            if (bits >= 8) {
+                bits -= 8;
+                packed[output++] = (unsigned char)(accumulator >> bits);
+            }
+        }
+        if (output != sizeof(packed))
+            return;
+        for (i = 0; i < FARAVAHAR_WIDTH * FARAVAHAR_HEIGHT; ++i) {
+            size_t p = i * 4u;
+            unsigned char alpha =
+                (packed[i / 8u] & (0x80u >> (i % 8u))) ? 255u : 0u;
+            pixels[p] = 224;
+            pixels[p + 1] = 176;
+            pixels[p + 2] = 90;
+            pixels[p + 3] = alpha;
+        }
+        glGenTextures(1, &texture);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 64, 32, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+        initialized = 1;
+    }
+
+    glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_TEXTURE_BIT);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glColor4f(1, 1, 1, 1);
+    glBegin(GL_QUADS);
+    glTexCoord2f(0, 0); glVertex2f(48, 27);
+    glTexCoord2f(1, 0); glVertex2f(112, 27);
+    glTexCoord2f(1, (float)FARAVAHAR_HEIGHT / 32.0f);
+    glVertex2f(112, 57);
+    glTexCoord2f(0, (float)FARAVAHAR_HEIGHT / 32.0f);
+    glVertex2f(48, 57);
     glEnd();
-    glBegin(GL_LINES);
-    glVertex2f(62, 27); glVertex2f(62, 57);
-    glVertex2f(48, 42); glVertex2f(76, 42);
-    glVertex2f(53, 32); glVertex2f(71, 52);
-    glVertex2f(71, 32); glVertex2f(53, 52);
-    glEnd();
-    glLineWidth(1.0f);
+    glPopAttrib();
 }
 
 static void draw_text(cairo_t *cr, const char *text,
@@ -240,9 +295,9 @@ static void draw_text_overlay(int width, int height)
                    gh_month_name(g_ui.view.month), g_ui.view.year);
     draw_text(cr, buffer, 48, 155, width - 280, 36,
               21, "#efcd85", PANGO_ALIGN_LEFT);
-    draw_text(cr, "بعدی ‹", width - 220, 155, 82, 36,
+    draw_text(cr, "بعدی ›", width - 220, 155, 82, 36,
               15, "#b1becf", PANGO_ALIGN_CENTER);
-    draw_text(cr, "› قبلی", width - 132, 155, 84, 36,
+    draw_text(cr, "‹ قبلی", width - 132, 155, 84, 36,
               15, "#b1becf", PANGO_ALIGN_CENTER);
 
     for (x = 0; x < 7; ++x) {
