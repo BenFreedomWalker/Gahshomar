@@ -298,3 +298,52 @@ const char *gh_month_name(int month)
 
     return g_month_names[month - 1];
 }
+
+
+/* Encode a signed integer as Persian Unicode decimal digits in UTF-8. */
+int gh_format_number(int value, char *buffer, size_t capacity)
+{
+    static const char *digits[10] = {
+        "۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"
+    };
+    char reversed[sizeof(int) * 3u + 1u];
+    unsigned int magnitude;
+    size_t count = 0;
+    size_t needed = 1;
+    size_t i;
+    size_t output = 0;
+
+    if (buffer == NULL || capacity == 0)
+        return 0;
+
+    buffer[0] = '\0';
+    if (value < 0) {
+        magnitude = (unsigned int)(-(value + 1)) + 1u;
+        ++needed;
+    } else {
+        magnitude = (unsigned int)value;
+    }
+
+    do {
+        reversed[count++] = (char)('0' + magnitude % 10u);
+        magnitude /= 10u;
+    } while (magnitude != 0u);
+
+    for (i = 0; i < count; ++i)
+        needed += strlen(digits[reversed[i] - '0']);
+
+    if (needed > capacity)
+        return 0;
+
+    if (value < 0)
+        buffer[output++] = '-';
+
+    while (count > 0) {
+        const char *digit = digits[reversed[--count] - '0'];
+        size_t length = strlen(digit);
+        memcpy(buffer + output, digit, length);
+        output += length;
+    }
+    buffer[output] = '\0';
+    return 1;
+}
